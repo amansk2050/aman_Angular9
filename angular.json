@@ -124,5 +124,8 @@
       }
     }
   },
-  "defaultProject": "userCrud"
+  "defaultProject": "userCrud",
+  "cli": {
+    "analytics": "dfe32045-5dbd-4d26-89ea-e17599fddd73"
+  }
 }

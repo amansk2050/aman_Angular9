@@ -1,0 +1,736 @@
+<div class="add-badge" *ngIf="checkValidMenu('R:SLA_Issues')">
+  <!-- Page Header -->
+  <div class="page-header">
+    <div class="row align-items-center">
+      <div class="col">
+        <h3 class="page-title">Category</h3>
+        <ul class="breadcrumb">
+          <li class="breadcrumb-item">
+            <a routerLink="/dashboard">Dashboard</a>
+          </li>
+          <li class="breadcrumb-item ">SLA</li>
+          <li class="breadcrumb-item active">Category</li>
+        </ul>
+      </div>
+      <div class="col-auto float-right ml-auto" *ngIf="checkValidMenu('C:SLA_Issues')">
+        <a class="btn add-btn" (click)="openForm()"><i class="fa fa-plus"></i> Add Category</a>
+      </div>
+      <a routerLink="/dashboard/sla/subcategory" class="btn add-btn mrgn2" *ngIf="checkValidMenu('R:SLA_Issues')">
+        GoTo SubCategory</a>
+    </div>
+  </div>
+  <div class="floatDropdownBox" *ngIf="checkValidMenu('R:SLA_Issues')">
+    <div class="col-md-3 mr-4">
+      <div class="form-group form-focus select-focus focused cbutoon">
+        <angular2-multiselect [data]="dropDownList.status.dropdownList" (onSelect)="getOnSelected($event)"
+          (onDeSelect)="getOnDeSelect($event)" (onDeSelectAll)="getOnDeSelectAll($event)"
+          [(ngModel)]="dropDownList.status.selectedItems" [settings]="dropDownList.status.dropdownSettings">
+        </angular2-multiselect>
+         <label class="focus-label">Status</label>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-12 tblmb">
+    <div class="table-responsive">
+      <table class="table table-striped custom-table mb-0">
+        <thead>
+          <tr>
+            <th width="5%"><span>#</span></th>
+            <th width="10%"><span>Name</span></th>
+            <th width="20%"><span>Description</span></th>
+            <th width="10%"><span>SubCategory</span></th>
+            <th width="5%" *ngIf="checkValidMenu('U:SLA_Issues')" ><span>Status</span></th>
+            <th width="5%" *ngIf="checkValidMenu('U:SLA_Issues')"><span>Edit</span></th>
+            <th width="5%" *ngIf="checkValidMenu('D:SLA_Issues')"><span>Delete</span></th>
+          </tr>
+        </thead>
+        <tbody *ngIf="categoryList.length > 0">
+          <tr class="holiday-completed" *ngFor="let val of categoryList; let ind = index">
+            <td>{{ (20*pageNum-20) + ind+1 }}</td>
+            <td>{{ val.category || "-" }}</td>
+            <td>{{ val.description || "-" }}</td>
+            <td *ngIf="checkValidMenu('R:SLA_Issues')"><button class="btn btn-sm btn-success" (click)="view(val,ind)">SubCategory</button></td>
+            <td *ngIf="checkValidMenu('U:SLA_Issues')">
+              <label class="switch" >
+                <input type="checkbox" [checked]='val.status'  (click)="updateStatus(val)">
+                <span class="slider"></span>
+              </label>
+            </td>
+            <td (click)="openForm(val)" *ngIf="checkValidMenu('U:SLA_Issues')">
+              <span class="action-circle large" title="Edit Cateogry">
+                <i class="material-icons">edit</i>
+              </span>
+            </td>
+            <td (click)="deletePopUp(val)" *ngIf="checkValidMenu('D:SLA_Issues')">
+              <span class="action-circle large" title="Delete Category">
+                <i class="material-icons">delete</i>
+              </span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+<app-sla-category-form [getData]="passData" *ngIf="formOpen" (closeform)="closeForm($event)"></app-sla-category-form>
+
+<!-- ********** loader start ************ -->
+<span *ngIf="(categoryList.length)<1">
+  <app-loader *ngIf="loaderCondition"></app-loader>
+  <p *ngIf=!loaderCondition class="dataNotFound">Data Not Found !</p>
+</span>
+
+<!-- Pagination Start -->
+<div class="row ng-star-inserted" *ngIf="categoryList.length > 0">
+  <div class="col-10">
+    <div class="dataTables_info" id="DataTables_Table_0_info" role="status" aria-live="polite">
+      Showing {{ startCount }} to {{ endCount }} of {{ totalCount }} entries
+    </div>
+  </div>
+  <div class="col-2 mrgn-left">
+    <div class="dataTables_paginate paging_simple_numbers" id="DataTables_Table_0_paginate">
+      <ul class="pagination">
+        <li class="paginate_button page-item previous" [ngClass]="{ disabled: pageNum == 1 }"
+          id="DataTables_Table_0_previous">
+          <a href="javascript:void(0);" aria-controls="DataTables_Table_0" data-dt-idx="0" tabindex="0"
+            class="page-link" (click)="pagination('previous')">Previous</a>
+        </li>
+        <li *ngFor="let val of pageCountArray; let ind = index" class="paginate_button page-item"
+          [class.active]="ind + 1 == pageNum">
+          <a aria-controls="DataTables_Table_0" data-dt-idx="1" tabindex="0" href="javascript:void(0);"
+            class="page-link" (click)="paginationNumVal(val)">{{ val }}</a>
+        </li>
+        <li class="paginate_button page-item next" [ngClass]="{ disabled: pageNum >= pageCountArray.length }"
+          id="DataTables_Table_0_next">
+          <a href="javascript:void(0);" class="page-link" (click)="pagination('next')">Next</a>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+<!-- Pagination End -->
+
+
+import { Component, OnInit } from '@angular/core';
+import { Router } from '@angular/router';
+import { LoadingBarService } from '@ngx-loading-bar/core';
+import { Subscription } from 'rxjs';
+import { DeletepopupService } from 'src/app/appServices/deletepopup.service';
+import { AccountService } from 'src/app/services/account.service';
+import { commonCRUDService } from 'src/app/services/commonCRUD.service';
+import { NotificationService } from 'src/app/services/notification.service';
+import { PanelService } from 'src/app/services/panel.service';
+import { Category } from 'src/app/sharedModule/models/sla.model';
+
+const tableName = 'category';
+@Component({
+  selector: 'app-sla-category',
+  templateUrl: './sla-category.component.html',
+  styleUrls: ['./sla-category.component.css']
+})
+export class SlaCategoryComponent implements OnInit {
+  formOpen: boolean = false;
+  passData: any;
+  permissions: any[] = [];
+  categoryList: Category[] = [];
+  endPoint = 'hcmSLATablesDetails'
+  pageNum: number = 1;
+  pageCountArray: any = [];
+  totalCount: Number;
+  loaderCondition: boolean = true;
+  deleteSubject: Subscription;
+  startCount: number;
+  endCount: number;
+  obj={};
+
+  dropDownList = {
+    status: { dropdownList: [], selectedItems: [], dropdownSettings: [] },
+  };
+
+
+  constructor(private _category: commonCRUDService,
+    private loadingBar: LoadingBarService,
+    private _deletepopupService: DeletepopupService,
+    private _p: PanelService,
+    private _accountService: AccountService,
+    private _notificationService: NotificationService,
+    private router:Router
+  ) {
+    let res = this._p.userDetails();
+    this._accountService.employeePermissionByRole.subscribe((result: any) => {
+      this.permissions = result;
+    });
+    this.multiSelectSetUp();
+  }
+  multiSelectSetUp() {
+    let setSingle = {
+      singleSelection: true,
+      selectAllText: "",
+      unSelectAllText: "",
+      enableCheckAll: false,
+      enableSearchFilter: false,
+      classes: "myclass custom-class",
+    };
+    this.dropDownList.status.dropdownSettings = JSON.parse(
+      JSON.stringify(setSingle)
+    );
+    this.dropDownList.status.dropdownList = [
+      { id: 1, itemName: "True" },
+      { id: 2, itemName: "False" },
+    ];
+    this.dropDownList.status.selectedItems = [];
+    this.dropDownList.status.dropdownSettings["text"] = "Status";
+  }
+
+  ngOnInit() {
+    if (localStorage.getItem("permissions") != null) {
+      this.permissions = JSON.parse(localStorage.getItem("permissions"));
+    }
+    this.initialCall();
+  }
+  ngAfterViewInit() {// after open popup delete details
+    this.deleteSubject = this._deletepopupService.deleteData.subscribe((res: any) => {
+      if (Object.keys(res).length > 0) {
+        this.deleteMethod(res);
+      }
+    });
+  }
+  getOnSelected(item: any) {
+      this.pageNum = 1;
+      this.obj['status']= item.itemName;
+      this.initialCall();
+  }
+  getOnDeSelect(item: any) {
+      delete this.obj['status'];
+      this.initialCall();
+  }
+  getOnDeSelectAll(items: any) {
+      delete this.obj['status'];
+      this.initialCall();
+  }
+  initialCall() {
+    this.category(this.pageNum);
+  }
+  async category(pageNo) {
+    this.loaderCondition = true;
+    this.loadingBar.start();
+    this.obj['page']= pageNo;
+    this.obj['table']= tableName;
+    let res = await this._category.getAPIs(this.endPoint, this.obj).toPromise();
+    if (res.count > 0) {
+      this.totalCount = res['totalCount'];
+      this.categoryList = res['data'].map(e => new Category(e));
+      this.countShowDinamically(pageNo);
+      this.getCount(this.pageNum, this.totalCount);
+    } else this.categoryList = [];
+    this.loaderCondition = false;
+    this.loadingBar.complete();
+  }
+  openForm(data?) {
+    this.formOpen = true;
+    this.passData = data;
+  }
+  closeForm(event) {
+    if (event) {
+      this.formOpen = !event;
+      this.initialCall();
+    } else this.formOpen = event;
+  }
+  view(val,ind){
+    val['ind']=ind;
+    this.router.navigate(['/dashboard/sla/subcategory'],{
+      queryParams:{val:JSON.stringify(val)}
+    });
+  }
+  deletePopUp(value) {
+    this._deletepopupService.openPopUp("Are you sure want to delete?", true, value, "Delete Category");
+  }
+  async deleteMethod(value) {
+    let obj = { id: value.category_id, table: tableName }
+    this.loadingBar.start();
+    await this._category.deleteAPIs(this.endPoint, obj).toPromise();
+    this._deletepopupService.openPopUp('', false, {});
+    this._notificationService.sendMessageForNotification.next({
+      msg: "Deleted Successfully",
+      successType: true,
+    });
+    this.initialCall();
+    this.loadingBar.complete();
+  }
+
+
+  async updateStatus(val) {
+    let obj = { id: val.category_id, status: val.status ? false : true , table: tableName}
+    await this._category.updateDataAPIs(this.endPoint, obj).toPromise();
+    this.initialCall()
+ }
+
+checkValidMenu(item) {
+  if (this.permissions != null) {
+    let validPermission = this.permissions.filter((ele) => {
+      if (item.indexOf(ele.id) > -1) {
+        return true;
+      }
+    });
+    if (validPermission.length > 0) return true;
+  }
+}
+
+  // ------------------ Pagination Methods Starts ------------------
+  pagination(typeOfButton) {
+    if (typeOfButton == "next") {
+      this.pageNum += 1;
+    }
+    if (typeOfButton == "previous") {
+      this.pageNum -= 1;
+    }
+    this.initialCall();
+  }
+  paginationNumVal(val) {
+    this.pageNum = val;
+    this.initialCall();
+  }
+  countShowDinamically(pageNum) {
+    this.startCount = 20 * pageNum + 1 - 20;
+    this.endCount =
+      Number(20 * pageNum - 20) + Number(this.categoryList.length);
+  }
+
+
+  getCount(pageNo, totalCount) {
+    if ((totalCount / 20) >= 1) {
+      var pageNoCount = Number(Math.floor(totalCount / 20))
+      if ((totalCount % 20) > 0) {
+        pageNoCount = Number(pageNoCount) + 1;
+      }
+    } else {
+      pageNoCount = 1;
+    }
+    this.pageCountArray = [];
+    for (let i = 1; i <= pageNoCount; i++) {
+      this.pageCountArray.push(i);
+    }
+    this.countShowDinamically(pageNo)
+  }
+  // ----------  Pagination End  -----------------
+
+  ngOnDestroy() {
+    this.deleteSubject.unsubscribe();
+  }
+}
+
+
+CHIld---------------------------
+
+<div class="badges">
+    <div class="modal custom-modal" [ngClass]="{'d-block':true}">
+        <div class="modal-dialog modal-dialog-centered" role="document">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">{{this.getData?'Update Category':'Add New Category'}}</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close" (click)="closeForm()">
+                        <span aria-hidden="true">×</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <form [formGroup]="addCategoryForm">
+                        <div class="row">
+                            <div class="form-group" style="width: 100%">
+                                <label>Category Name <span class="text-danger">*</span></label>
+                                <input class="form-control" type="text" formControlName="category"
+                                    placeholder="Enter Category Name" />
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="form-group" style="width: 100%">
+                                <label>Description <span class="text-danger">*</span></label>
+                                <input class="form-control" type="text" formControlName="description"
+                                    placeholder="Enter  Description" />
+                            </div>
+                        </div>
+                        <!--  -->
+                        <div class="row" *ngIf="planData.length>0">
+                            <div class="form-group" style="width: 100%" *ngIf="condition1">
+                                <label class="focus-label">Select Predefined Plan<span class="text-danger">*</span></label>
+                                <div class="form-group form-focus select-focus focused cbutoon">
+                                    <angular2-multiselect [data]="dropDownList.plan.dropdownList"
+                                    [(ngModel)]="dropDownList.plan.selectedItems"           
+                                        [settings]="dropDownList.plan.dropdownSettings"
+                                        (onSelect)="getOnSelected($event, 'plan')"
+                                        (onDeSelectAll)="onDeSelectAll($event, 'plan')"
+                                        (onScrollToEnd)="fetchMore($event)" formControlName="id">
+                                        <!-- <c-search>
+                                            <ng-template>
+                                                <input type="text" (keyup)="onSearchPlan($event.target.value)"
+                                                    placeholder="Search Plan">
+                                            </ng-template>
+                                        </c-search> -->
+                                    </angular2-multiselect>
+                                </div>
+                            </div>
+                        </div>
+                        
+                     
+                         <div class="row">
+                             
+                            <div *ngIf="newArr.length>0" class="form-group" style="width: 100%">
+                                <label class="focus-label">Category Breach Plan - {{raw_plan_name}}</label>
+                                <br>
+                                <ng-container *ngFor="let a of newArr;let ind = index">
+                                    <h6> Level{{ind+1}}:&nbsp;&nbsp; {{a}} {{ cycle }}</h6>
+                                </ng-container>
+                            </div>
+                        </div>
+                        <div *ngIf="this.getData" style="width: 16%">
+                            <label>Status <span class="text-danger">*</span></label>
+                            <label class="switch">
+                                <input type="checkbox" formControlName="status" id="CheckBox_visibility">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="submit-section">
+                            <button class="btn btn-primary submit-btn"
+                                [disabled]="!addCategoryForm.valid || apiProgress"  (click)="submitForm()">
+                                Submit
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+import { Component, EventEmitter, Input, OnInit, Output } from '@angular/core';
+import { FormBuilder, FormControl, FormGroup, Validators } from '@angular/forms';
+import { LoadingBarService } from '@ngx-loading-bar/core';
+import { commonCRUDService } from 'src/app/services/commonCRUD.service';
+const Category = "category";
+const tableName = 'category';
+@Component({
+  selector: 'app-sla-category-form',
+  templateUrl: './sla-category-form.component.html',
+  styleUrls: ['./sla-category-form.component.css']
+})
+export class SlaCategoryFormComponent implements OnInit {
+  addCategoryForm: FormGroup
+  @Output() closeform = new EventEmitter<boolean>();
+  @Input() getData: any;
+  apiProgress: boolean = false;
+  imageUrl: string;
+  openImage: boolean = false;
+  endPoint = 'hcmSLATablesDetails';
+  planEndPoint = 'hcmSLARawPlan';
+  planPackEndpoint = 'hcmSLAPlanDetails'
+  pageNum: number = 1;
+  planPageNum: number = 1;
+  raw_plan_id: String;
+  searchLength: number = 0;
+  total: number;
+  resPlan: any[] = [];
+  newArr: any[] = [];
+  cycle: string;
+  PlanMail: any = '';
+  planData: any[] = [];
+  condition: boolean = true;
+  plan_id: any;
+  category_id: number;
+  newArr1: any[] = [];
+  cycle1: string;
+  raw_plan_name: string;
+  raw_plan_name1: string;
+  categoryPlan: boolean = false;
+  condition1: boolean = true;
+  dropDownList = {
+    plan: { dropdownList: [], selectedItems: [], dropdownSettings: [] },
+  };
+  constructor(
+    private fb: FormBuilder,
+    private _category: commonCRUDService,
+    private loadingBar: LoadingBarService,
+  ) {
+    this.createForm();
+    this.multiSelectSetUp();
+  }
+  multiSelectSetUp() {
+    let setSingle = {
+      singleSelection: true,
+      selectAllText: "",
+      unSelectAllText: "",
+      enableCheckAll: false,
+      enableSearchFilter: true,
+      classes: "myclass custom-class",
+      lazyLoading: true,
+    };
+    this.dropDownList.plan.dropdownSettings = JSON.parse(JSON.stringify(setSingle));
+    this.dropDownList.plan.dropdownSettings['text'] = 'Select Predefined Plan';
+  }
+  ngOnInit() {
+    if (this.getData) {
+      this.category_id = this.getData.category_id;
+      this.getData.table = "category";
+      this.patchForm();
+      this.categoryValue(this.planPageNum);
+      this.getPlanValue(this.planPageNum);
+    }
+    else {
+      this.getPlanValue(this.planPageNum);
+    }
+  }
+  // -----------------------------------------------------
+  getOnSelected(item: any, filterType: any) {
+    switch (filterType) {
+      case "plan":
+        this.newArr = [];
+        this.raw_plan_id = item.itemId;
+        this.total = item.total;
+        this.cycle = item.cycle;
+        this.pageNum = 1;
+        this.getData ? this.categoryPlan = true : this.categoryPlan = false;
+        this.getData ? this.condition = false : this.condition = true;
+        this.GetPlanData();
+        break;
+    }
+  }
+  onDeSelectAll(item: any, filterType: any) {
+    switch (filterType) {
+      case "plan":
+        this.raw_plan_id = '';
+        this.pageNum = 1;
+        this.newArr = [];
+        this.addCategoryForm.controls['id'].setValue('');
+        break;
+    }
+  }
+  async categoryValue(page) {
+    this.loadingBar.start();
+    this.raw_plan_name = '';
+    this.cycle = '';
+    let obj =
+    {
+      page: page,
+      status: true,
+      type_of: Category,
+      ref_id: this.category_id
+    }
+    let res = await this._category.getAPIs(this.planPackEndpoint, obj).toPromise();
+    this.preSelectedData(res.data);
+    this.GetPlanData();
+    this.raw_plan_id = res.data[0].id;
+    this.plan_id = res.data[0].plan_id;
+    this.total = res.data[0].total;
+    this.condition = true;
+    this.raw_plan_name = res.data[0].rawplan_name;
+    this.cycle = res.data[0].cycle;
+    res.data.forEach((ele, ind) => {
+      let a = ele.rawplan.map(ele1 => {
+        Object.values(ele1).map(val => {
+          this.newArr.push(val['end'] - val['start']);
+        })
+      })
+    })
+  }
+  preSelectedData(data) {
+    let resId = data[0].id;
+    this.resPlan.forEach((ele, ind) => {
+      if ((ele.id) == resId) {
+        let obj = {};
+        obj["id"] = ind + 1;
+        obj["itemName"] = ele.rawplan_name + " - " + ele.total + " " + ele.cycle;
+        obj["itemId"] = ele.id;
+        obj['total'] = ele.total;
+        obj['cycle'] = ele.cycle;
+        this.dropDownList.plan.selectedItems.push(obj);
+      }
+    })
+  }
+  GetPlanData() {
+    this.resPlan.forEach((ele, ind) => {
+      if (ele.id == this.raw_plan_id) {
+        this.raw_plan_name = ele.rawplan_name
+        let a = ele.rawplan.map(ele1 => {
+          Object.values(ele1).map(val => {
+            this.newArr.push(val['end'] - val['start']);
+          })
+        })
+      }
+    })
+  }
+  async getPlanValue(page) {
+    this.loadingBar.start();
+    let obj =
+    {
+      page: page,
+      status: true
+    }
+    let res = await this._category.getAPIs(this.planEndPoint, obj).toPromise();
+    this.resPlan = res.data;
+    if (res.count > 0) { this.getPlanDropdownValue(res.data) }
+    this.loadingBar.complete();
+  }
+  async getPlanDropdownValue(plan) {
+    await plan.forEach((ele, ind) => {
+      let obj = {};
+      obj["id"] = 20 * this.pageNum - 20 + ind + 1;
+      obj["itemName"] = ele.rawplan_name + " - " + ele.total + " " + ele.cycle;
+      obj["itemId"] = ele.id;
+      obj['total'] = ele.total;
+      obj['cycle'] = ele.cycle;
+      this.dropDownList.plan.dropdownList.push(obj);
+      this.planData.push(obj);
+    });
+  }
+  ScrollConditionCheck: any[] = [];
+  fetchMore(val: any) {
+    if (val.startIndex > -1 && this.dropDownList.plan.dropdownList.length > 19) {
+      if (val.endIndex === ((this.dropDownList.plan.dropdownList.length - 1))) {
+        this.ScrollConditionCheck.push(val.endIndex);
+        if (this.ScrollConditionCheck.length == 1) {
+          for (let i = 2; i <= (this.planPageNum) + 1; i++) {
+            this.getPlanValue(i);
+          }
+        }
+      }
+    }
+  }
+  onSearchPlan(searchVal) {//search Designation
+    // if ((searchVal.length) >= 3) {
+    //   this.loadingBar.start();
+    //   this.searchLength = 1;
+    //   this._empoloyeeService.searchEmployeeByIdName(this.context, 'User', String(searchVal), true).subscribe((result: any) => {
+    //     let array = [];
+    //     if (result.length > 0) {
+    //       result.forEach((ele, ind) => {
+    //         let obj = {};
+    //         obj['id'] = ind + 1;
+    //         obj['itemName'] = ele.id;
+    //         obj['userId'] = ele.id;
+    //         array.push(obj);
+    //       });
+    //       this.dropDownList.email.dropdownList = array;
+    //     } else {
+    //       this.dropDownList.email.dropdownList = [];
+    //     }
+    //     this.loadingBar.complete();
+    //   }, (error => {
+    //     this.loadingBar.complete();
+    //   }))
+    // }
+    // else {
+    //   if (this.searchLength === 1) {
+    //     this.searchLength = 0;
+    //     this.clearMail();
+    //   }
+    // }
+  }
+  clearBadge() {
+    this.addCategoryForm.controls.ref_id.reset();
+    this.dropDownList.plan.dropdownList = this.planData;
+  }
+  // ----------------------------------------------------
+  createForm() {
+    this.addCategoryForm = this.fb.group({
+      category: ["", [Validators.required]],
+      id: ["", [Validators.required]],
+      description: [""],
+      status: [true],
+    })
+  };
+  patchForm() {
+    this.addCategoryForm.addControl('category_id', new FormControl('', Validators.required));
+    this.addCategoryForm.patchValue(this.getData);
+    console.log("Value of Form", this.addCategoryForm.value);
+    this.addCategoryForm.controls['id'].setValue(this.getData.category_id);
+    console.log("Value of Form", this.addCategoryForm.value);
+    console.log("Data of Form", this.addCategoryForm);
+  }
+  closeForm() {
+    this.closeform.emit(false);
+  }
+  submitForm() {
+    let body = this.addCategoryForm.getRawValue();
+    if (this.getData) this.updateData(body);
+    else this.addData(body)
+  }
+  async addData(body) {
+    delete body.status;
+    body.table = tableName;
+    body.id = Number(this.raw_plan_id);
+    body.total = this.total;
+    await this._category.addDataAPIs(this.endPoint, body).toPromise();
+    this.success()
+  }
+  async updatePlan() {
+    let obj = {
+      plan_id: this.plan_id,
+      id: String(this.raw_plan_id),
+      ref_id: this.category_id,
+      type_of: Category,
+      total: this.total,
+    }
+    await this._category.updateDataAPIs(this.planPackEndpoint, obj).toPromise();
+    this.success();
+  }
+  async updateData(body) {
+    body.id = body.category_id,
+      delete body.category_id;
+    body.table = tableName;
+    await this._category.updateDataAPIs(this.endPoint, body).toPromise();
+    this.updatePlan();
+    this.success()
+  }
+  success() {
+    setTimeout(() => {
+      this.loadingBar.complete();
+      this.closeform.emit(true);
+    }, 1000)
+  }
+}
+-----------Service-----------------------------
+
+import { Injectable } from '@angular/core';
+import { Observable } from 'rxjs';
+import { HttpClient, HttpHeaders } from '@angular/common/http';
+import { environment } from 'src/environments/environment'
+@Injectable({
+  providedIn: 'root'
+})
+export class commonCRUDService {
+  baseURL: string = environment.url;
+  // baseURL :string= 'http://192.168.0.7:8000/hcm_extended_module/';
+  mapUrlWithParams(url, filter) {
+    const newUrl: any = new URL(url);
+    newUrl.search = new URLSearchParams(filter);
+    return newUrl.href;
+  }
+  constructor(
+    private http: HttpClient
+  ) { }
+  getAPIs(endPoint: string, obj: object): Observable<any> {
+    let url = this.mapUrlWithParams(`${this.baseURL + endPoint}`, obj);
+    return this.http.get<any>(url)
+  }
+  addDataAPIs(endPoint: string, body: object): Observable<any> {
+    let url = `${this.baseURL + endPoint}`;
+    return this.http.post(url, body)
+  }
+  updateDataAPIs(endPoint: string, body: object): Observable<any> {
+    let url = `${this.baseURL + endPoint}`;
+    return this.http.put(url, body)
+  }
+  searchData(endPoint: string, body: object): Observable<any> {
+    let url = `${this.baseURL + endPoint}`;
+    return this.http.patch(url, body)
+  }
+  deleteAPIs(endPoint: string, obj: object): Observable<any> {
+    let url = `${this.baseURL + endPoint}`;
+    let httpOption = {
+      headers: new HttpHeaders({
+        'Content-Type': 'application/json',
+      }),
+      body: obj
+    };
+    return this.http.delete(url, httpOption)
+  }
+}
